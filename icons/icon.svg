@@ -1,0 +1,10 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#1a1a2e"/>
+  <path d="M100 120 L200 80 L300 120 L400 80 L400 380 L300 420 L200 380 L100 420 Z" fill="none" stroke="#e94560" stroke-width="8"/>
+  <line x1="200" y1="80" x2="200" y2="380" stroke="#e94560" stroke-width="4" opacity="0.6"/>
+  <line x1="300" y1="120" x2="300" y2="420" stroke="#e94560" stroke-width="4" opacity="0.6"/>
+  <circle cx="256" cy="220" r="30" fill="#e94560"/>
+  <path d="M256 250 L256 300" stroke="#e94560" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="256" cy="220" r="12" fill="#1a1a2e"/>
+  <text x="256" y="400" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#fff" text-anchor="middle">地图</text>
+</svg>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>第五人格加页手记地图</title>
+  <meta name="description" content="厄运困难难度地图路线速查工具">
+  
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#e94560">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="加页地图">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <h1>🗺️ 第五人格加页手记地图</h1>
+    <p class="subtitle">厄运困难难度地图路线速查工具</p>
+    
+    <div class="stats">
+      <div class="stat-item">
+        <span class="stat-number" id="totalMaps">0</span>
+        <span class="stat-label">地图总数</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number" id="totalShapes">0</span>
+        <span class="stat-label">地图形状</span>
+      </div>
+    </div>
+    
+    <div class="controls-bar">
+      <input type="text" class="search-box" id="searchBox" placeholder="🔍 搜索地图...">
+      
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all">全部</button>
+        <button class="filter-btn" data-filter="上">上</button>
+        <button class="filter-btn" data-filter="下">下</button>
+        <button class="filter-btn" data-filter="左">左</button>
+        <button class="filter-btn" data-filter="右">右</button>
+        <button class="filter-btn" data-filter="侧">侧</button>
+        <button class="filter-btn" data-filter="中">中</button>
+      </div>
+      
+      <div class="filter-bar">
+        <button class="view-btn active" data-view="list">📋 浏览</button>
+        <button class="view-btn" data-view="manage">⚙️ 管理</button>
+      </div>
+    </div>
+  </header>
+  
+  <main class="container" id="content">
+    <!-- 内容动态渲染 -->
+  </main>
+  
+  <!-- 图片查看模态框 -->
+  <div class="modal" id="modal">
+    <span class="modal-close" id="modalClose">&times;</span>
+    <img id="modalImage" src="" alt="地图">
+    <div class="modal-info" id="modalInfo"></div>
+    
+    <div class="zoom-hint">
+      💡 滚轮缩放 · 拖拽移动 · 双击重置
+    </div>
+    
+    <div class="zoom-controls">
+      <button class="zoom-btn" id="zoomOut">−</button>
+      <span class="zoom-level" id="zoomLevel">100%</span>
+      <button class="zoom-btn" id="zoomIn">+</button>
+      <button class="zoom-btn" id="zoomReset">↺</button>
+    </div>
+  </div>
+  
+  <!-- Scripts -->
+  <script src="js/db.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
