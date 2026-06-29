@@ -1,13 +1,13 @@
 // Service Worker for PWA offline support
 const CACHE_NAME = 'map-viewer-v1';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/css/style.css',
-  '/js/db.js',
-  '/js/ui.js',
-  '/js/app.js'
+  './',
+  './index.html',
+  './manifest.json',
+  './css/style.css',
+  './js/db.js',
+  './js/ui.js',
+  './js/app.js'
 ];
 
 // Install event - cache static assets

@@ -2,7 +2,7 @@
   "name": "第五人格加页手记地图",
   "short_name": "加页地图",
   "description": "厄运困难难度地图路线速查工具",
-  "start_url": "/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#e94560",
