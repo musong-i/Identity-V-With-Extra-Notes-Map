@@ -354,18 +354,30 @@ function setupZoomAndPan() {
     resetZoom();
   });
 
-  // 缩放手势支持（移动端）
+  // 触摸手势支持（移动端）
   let lastTouchDistance = 0;
-  modal.addEventListener('touchstart', (e) => {
+  let touchStartX, touchStartY;
+  let isTouchDragging = false;
+  
+  // 触摸开始
+  modalImage.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
+      // 双指缩放
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       lastTouchDistance = Math.sqrt(dx * dx + dy * dy);
+    } else if (e.touches.length === 1 && currentZoom > 1) {
+      // 单指拖拽（仅在放大状态下）
+      isTouchDragging = true;
+      touchStartX = e.touches[0].clientX - panX;
+      touchStartY = e.touches[0].clientY - panY;
     }
   });
 
-  modal.addEventListener('touchmove', (e) => {
+  // 触摸移动
+  modalImage.addEventListener('touchmove', (e) => {
     if (e.touches.length === 2) {
+      // 双指缩放
       e.preventDefault();
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -374,7 +386,18 @@ function setupZoomAndPan() {
       currentZoom = Math.max(MIN_ZOOM, Math.min(currentZoom * scale, MAX_ZOOM));
       lastTouchDistance = distance;
       updateImageTransform();
+    } else if (isTouchDragging && e.touches.length === 1) {
+      // 单指拖拽
+      e.preventDefault();
+      panX = e.touches[0].clientX - touchStartX;
+      panY = e.touches[0].clientY - touchStartY;
+      updateImageTransform();
     }
+  });
+
+  // 触摸结束
+  modalImage.addEventListener('touchend', () => {
+    isTouchDragging = false;
   });
 
   // 缩放按钮
