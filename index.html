@@ -55,23 +55,8 @@
     <!-- 内容动态渲染 -->
   </main>
   
-  <!-- 图片查看模态框 -->
-  <div class="modal" id="modal">
-    <span class="modal-close" id="modalClose">&times;</span>
-    <img id="modalImage" src="" alt="地图">
-    <div class="modal-info" id="modalInfo"></div>
-    
-    <div class="zoom-hint">
-      💡 滚轮缩放 · 拖拽移动 · 双击重置
-    </div>
-    
-    <div class="zoom-controls">
-      <button class="zoom-btn" id="zoomOut">−</button>
-      <span class="zoom-level" id="zoomLevel">100%</span>
-      <button class="zoom-btn" id="zoomIn">+</button>
-      <button class="zoom-btn" id="zoomReset">↺</button>
-    </div>
-  </div>
+  <!-- 图片画廊容器（动态创建） -->
+  <div id="galleryContainer"></div>
   
   <!-- Scripts -->
   <script src="js/db.js"></script>

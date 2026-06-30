@@ -8,6 +8,9 @@ let currentFilter = 'all';
 let searchQuery = '';
 let currentView = 'list'; // 'list' | 'manage'
 
+// 画廊状态
+const galleries = {}; // 按组ID存储画廊数据
+
 // 缩放和拖拽状态
 let currentZoom = 1;
 let panX = 0;
@@ -17,6 +20,9 @@ let startX, startY;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 5;
 const ZOOM_STEP = 0.1;
+
+// 当前活跃的画廊
+let activeGallery = null;
 
 /**
  * 渲染主内容
@@ -76,10 +82,11 @@ async function renderListView(container) {
         const imageUrl = map.imageData ? URL.createObjectURL(map.imageData) : '';
         const thumbUrl = map.thumbnail ? URL.createObjectURL(map.thumbnail) : imageUrl;
 
+        // 使用 door.id 作为组标识，实现组间隔离
         mapsHtml += `
           <div class="image-card" data-map-id="${map.id}">
             <img src="${thumbUrl || ''}" alt="${map.name}" loading="lazy" 
-                 onclick="openModal(${map.id})" data-full-src="${imageUrl}">
+                 onclick="openGallery(${door.id}, ${map.id})" data-full-src="${imageUrl}">
             <div class="image-info">
               <div class="image-name">${map.name}</div>
               <div class="image-path">${shape.symbol} > ${door.positionName}</div>
@@ -127,10 +134,10 @@ async function renderManageView(container) {
   
   let html = `
     <div class="manage-header">
-      <h2>📋 地图管理</h2>
+      <h2> 地图管理</h2>
       <div class="manage-actions">
-        <button class="btn btn-primary" onclick="showAddShapeModal()">➕ 添加形状</button>
-        <button class="btn btn-secondary" onclick="exportData()">📤 导出数据</button>
+        <button class="btn btn-primary" onclick="showAddShapeModal()"> 添加形状</button>
+        <button class="btn btn-secondary" onclick="exportData()"> 导出数据</button>
         <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">📥 导入数据</button>
         <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
       </div>
@@ -146,7 +153,7 @@ async function renderManageView(container) {
           <div class="shape-actions">
             <button class="btn btn-small" onclick="showAddDoorModal(${shape.id})">➕ 添加门位置</button>
             <button class="btn btn-small btn-edit" onclick="showEditShapeModal(${shape.id})">✏️ 编辑</button>
-            <button class="btn btn-small btn-danger" onclick="confirmDeleteShape(${shape.id}, '${shape.symbol}')">🗑️ 删除</button>
+            <button class="btn btn-small btn-danger" onclick="confirmDeleteShape(${shape.id}, '${shape.symbol}')">️ 删除</button>
           </div>
         </div>
     `;
@@ -159,7 +166,7 @@ async function renderManageView(container) {
             <div class="door-actions">
               <button class="btn btn-small" onclick="showAddMapModal(${door.id}, '${shape.symbol}', '${door.positionName}')">➕ 添加地图</button>
               <button class="btn btn-small btn-edit" onclick="showEditDoorModal(${door.id})">✏️ 编辑</button>
-              <button class="btn btn-small btn-danger" onclick="confirmDeleteDoor(${door.id}, '${door.positionName}')">🗑️ 删除</button>
+              <button class="btn btn-small btn-danger" onclick="confirmDeleteDoor(${door.id}, '${door.positionName}')">️ 删除</button>
             </div>
           </div>
           <div class="manage-maps-grid">
@@ -250,70 +257,116 @@ function setSearch(query) {
   renderContent();
 }
 
+// ==================== 独立图片画廊组件 ====================
+
 /**
- * 打开图片模态框
+ * 打开独立图片画廊
+ * @param {number} doorId - 门位置ID（组标识）
+ * @param {number} mapId - 当前图片ID
  */
-async function openModal(mapId) {
-  const map = await dbOps.get('maps', mapId);
-  if (!map) return;
+async function openGallery(doorId, mapId) {
+  // 获取门位置信息
+  const door = await dbOps.get('doorPositions', doorId);
+  if (!door) return;
 
-  const modal = document.getElementById('modal');
-  const modalImage = document.getElementById('modalImage');
-  const modalInfo = document.getElementById('modalInfo');
+  // 获取该组的所有地图
+  const maps = await dbOps.getByIndex('maps', 'doorPositionId', doorId);
+  if (!maps || maps.length === 0) return;
 
+  // 找到当前图片在组中的索引
+  const mapIndex = maps.findIndex(m => m.id === mapId);
+  if (mapIndex === -1) return;
+
+  // 创建或更新画廊
+  activeGallery = {
+    doorId: doorId,
+    maps: maps,
+    currentIndex: mapIndex,
+    doorName: door.positionName
+  };
+
+  renderGallery();
+}
+
+/**
+ * 渲染画廊界面
+ */
+function renderGallery() {
+  if (!activeGallery) return;
+
+  const container = document.getElementById('galleryContainer');
+  const map = activeGallery.maps[activeGallery.currentIndex];
   const imageUrl = map.imageData ? URL.createObjectURL(map.imageData) : '';
-  modalImage.src = imageUrl;
-  modalInfo.textContent = map.name;
-  modal.classList.add('active');
-  document.body.style.overflow = 'hidden';
+  const isFirst = activeGallery.currentIndex === 0;
+  const isLast = activeGallery.currentIndex === activeGallery.maps.length - 1;
 
-  resetZoom();
-}
+  container.innerHTML = `
+    <div class="gallery-overlay active" id="galleryOverlay">
+      <!-- 关闭按钮 -->
+      <div class="gallery-close" id="galleryClose" onclick="closeGallery()">&times;</div>
+      
+      <!-- 左箭头 -->
+      <button class="gallery-arrow gallery-prev ${isFirst ? 'disabled' : ''}" 
+              onclick="galleryPrev()" ${isFirst ? 'disabled' : ''}>
+        &#10094;
+      </button>
+      
+      <!-- 图片容器 -->
+      <div class="gallery-image-wrapper">
+        <img id="galleryImage" src="${imageUrl}" alt="${map.name}" 
+             class="gallery-image">
+      </div>
+      
+      <!-- 右箭头 -->
+      <button class="gallery-arrow gallery-next ${isLast ? 'disabled' : ''}" 
+              onclick="galleryNext()" ${isLast ? 'disabled' : ''}>
+        &#10095;
+      </button>
+      
+      <!-- 缩放控制 -->
+      <div class="gallery-zoom-controls">
+        <button class="zoom-btn" onclick="galleryZoomOut()">−</button>
+        <span class="zoom-level" id="galleryZoomLevel">100%</span>
+        <button class="zoom-btn" onclick="galleryZoomIn()">+</button>
+        <button class="zoom-btn" onclick="galleryZoomReset()">↺</button>
+      </div>
+      
+      <!-- 缩放提示 -->
+      <div class="gallery-zoom-hint">
+        💡 滚轮缩放 · 拖拽移动 · 双击重置 · 左右滑动翻页
+      </div>
+    </div>
+  `;
 
-/**
- * 关闭模态框
- */
-function closeModal() {
-  const modal = document.getElementById('modal');
-  modal.classList.remove('active');
-  document.body.style.overflow = '';
-  resetZoom();
-}
-
-/**
- * 缩放和拖拽控制
- */
-function updateImageTransform() {
-  const modalImage = document.getElementById('modalImage');
-  modalImage.style.transform = `translate(${panX}px, ${panY}px) scale(${currentZoom})`;
-  document.getElementById('zoomLevel').textContent = Math.round(currentZoom * 100) + '%';
-}
-
-function resetZoom() {
+  // 重置缩放
   currentZoom = 1;
   panX = 0;
   panY = 0;
-  updateImageTransform();
+
+  // 设置事件监听
+  setupGalleryEvents();
 }
 
-function zoomIn() {
-  currentZoom = Math.min(currentZoom + ZOOM_STEP, MAX_ZOOM);
-  updateImageTransform();
-}
+/**
+ * 设置画廊事件监听
+ */
+function setupGalleryEvents() {
+  const overlay = document.getElementById('galleryOverlay');
+  const image = document.getElementById('galleryImage');
 
-function zoomOut() {
-  currentZoom = Math.max(currentZoom - ZOOM_STEP, MIN_ZOOM);
-  updateImageTransform();
-}
+  if (!overlay || !image) return;
 
-function setupZoomAndPan() {
-  const modal = document.getElementById('modal');
-  const modalImage = document.getElementById('modalImage');
+  // 点击背景关闭（不是点击图片本身）
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      closeGallery();
+    }
+  });
 
   // 鼠标滚轮缩放
-  modal.addEventListener('wheel', (e) => {
+  overlay.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const rect = modalImage.getBoundingClientRect();
+    const rect = image.getBoundingClientRect();
     const mouseX = e.clientX - rect.left - rect.width / 2;
     const mouseY = e.clientY - rect.top - rect.height / 2;
     const oldZoom = currentZoom;
@@ -322,16 +375,16 @@ function setupZoomAndPan() {
     const zoomRatio = currentZoom / oldZoom;
     panX = panX * zoomRatio - mouseX * (zoomRatio - 1);
     panY = panY * zoomRatio - mouseY * (zoomRatio - 1);
-    updateImageTransform();
+    updateGalleryImageTransform();
   });
 
   // 鼠标拖拽
-  modalImage.addEventListener('mousedown', (e) => {
+  image.addEventListener('mousedown', (e) => {
     if (currentZoom <= 1) return;
     isDragging = true;
     startX = e.clientX - panX;
     startY = e.clientY - panY;
-    modalImage.style.cursor = 'grabbing';
+    image.style.cursor = 'grabbing';
     e.preventDefault();
   });
 
@@ -339,43 +392,50 @@ function setupZoomAndPan() {
     if (!isDragging) return;
     panX = e.clientX - startX;
     panY = e.clientY - startY;
-    updateImageTransform();
+    updateGalleryImageTransform();
   });
 
   document.addEventListener('mouseup', () => {
     isDragging = false;
-    const modalImage = document.getElementById('modalImage');
-    if (modalImage) modalImage.style.cursor = '';
+    const img = document.getElementById('galleryImage');
+    if (img) img.style.cursor = '';
   });
 
   // 双击重置
-  modalImage.addEventListener('dblclick', (e) => {
+  image.addEventListener('dblclick', (e) => {
     e.preventDefault();
-    resetZoom();
+    galleryZoomReset();
   });
 
   // 触摸手势支持（移动端）
   let lastTouchDistance = 0;
   let touchStartX, touchStartY;
+  let touchStartClientX, touchStartClientY;
   let isTouchDragging = false;
-  
-  // 触摸开始
-  modalImage.addEventListener('touchstart', (e) => {
+  let isTouchSwiping = false;
+  let touchMoved = false;
+
+  image.addEventListener('touchstart', (e) => {
+    touchMoved = false;
     if (e.touches.length === 2) {
       // 双指缩放
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       lastTouchDistance = Math.sqrt(dx * dx + dy * dy);
-    } else if (e.touches.length === 1 && currentZoom > 1) {
-      // 单指拖拽（仅在放大状态下）
-      isTouchDragging = true;
-      touchStartX = e.touches[0].clientX - panX;
-      touchStartY = e.touches[0].clientY - panY;
+    } else if (e.touches.length === 1) {
+      touchStartClientX = e.touches[0].clientX;
+      touchStartClientY = e.touches[0].clientY;
+      if (currentZoom > 1) {
+        // 单指拖拽（仅在放大状态下）
+        isTouchDragging = true;
+        touchStartX = e.touches[0].clientX - panX;
+        touchStartY = e.touches[0].clientY - panY;
+      }
     }
   });
 
-  // 触摸移动
-  modalImage.addEventListener('touchmove', (e) => {
+  image.addEventListener('touchmove', (e) => {
+    touchMoved = true;
     if (e.touches.length === 2) {
       // 双指缩放
       e.preventDefault();
@@ -385,26 +445,123 @@ function setupZoomAndPan() {
       const scale = distance / lastTouchDistance;
       currentZoom = Math.max(MIN_ZOOM, Math.min(currentZoom * scale, MAX_ZOOM));
       lastTouchDistance = distance;
-      updateImageTransform();
+      updateGalleryImageTransform();
     } else if (isTouchDragging && e.touches.length === 1) {
       // 单指拖拽
       e.preventDefault();
       panX = e.touches[0].clientX - touchStartX;
       panY = e.touches[0].clientY - touchStartY;
-      updateImageTransform();
+      updateGalleryImageTransform();
     }
   });
 
-  // 触摸结束
-  modalImage.addEventListener('touchend', () => {
-    isTouchDragging = false;
+  image.addEventListener('touchend', (e) => {
+    if (isTouchDragging) {
+      isTouchDragging = false;
+      return;
+    }
+    // 如果没有移动（点击），不处理
+    // 如果移动了但没有拖拽，可能是滑动翻页
+    if (touchMoved && !isTouchDragging && currentZoom <= 1) {
+      const touch = e.changedTouches[0];
+      const dx = touch.clientX - touchStartClientX;
+      const dy = touch.clientY - touchStartClientY;
+      // 水平滑动距离大于垂直距离，且超过阈值
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+        if (dx < 0) {
+          galleryNext(); // 向左滑，下一张
+        } else {
+          galleryPrev(); // 向右滑，上一张
+        }
+      }
+    }
   });
 
-  // 缩放按钮
-  document.getElementById('zoomIn').addEventListener('click', zoomIn);
-  document.getElementById('zoomOut').addEventListener('click', zoomOut);
-  document.getElementById('zoomReset').addEventListener('click', resetZoom);
+  // 键盘支持
+  document.addEventListener('keydown', handleGalleryKeydown);
 }
+
+/**
+ * 键盘事件处理
+ */
+function handleGalleryKeydown(e) {
+  if (!activeGallery) return;
+  
+  switch (e.key) {
+    case 'Escape':
+      closeGallery();
+      break;
+    case 'ArrowLeft':
+      galleryPrev();
+      break;
+    case 'ArrowRight':
+      galleryNext();
+      break;
+  }
+}
+
+/**
+ * 更新画廊图片变换
+ */
+function updateGalleryImageTransform() {
+  const image = document.getElementById('galleryImage');
+  if (!image) return;
+  image.style.transform = `translate(${panX}px, ${panY}px) scale(${currentZoom})`;
+  const zoomLevel = document.getElementById('galleryZoomLevel');
+  if (zoomLevel) {
+    zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
+  }
+}
+
+/**
+ * 画廊缩放控制
+ */
+function galleryZoomIn() {
+  currentZoom = Math.min(currentZoom + ZOOM_STEP, MAX_ZOOM);
+  updateGalleryImageTransform();
+}
+
+function galleryZoomOut() {
+  currentZoom = Math.max(currentZoom - ZOOM_STEP, MIN_ZOOM);
+  updateGalleryImageTransform();
+}
+
+function galleryZoomReset() {
+  currentZoom = 1;
+  panX = 0;
+  panY = 0;
+  updateGalleryImageTransform();
+}
+
+/**
+ * 画廊翻页
+ */
+function galleryPrev() {
+  if (!activeGallery || activeGallery.currentIndex <= 0) return;
+  activeGallery.currentIndex--;
+  renderGallery();
+}
+
+function galleryNext() {
+  if (!activeGallery || activeGallery.currentIndex >= activeGallery.maps.length - 1) return;
+  activeGallery.currentIndex++;
+  renderGallery();
+}
+
+/**
+ * 关闭画廊
+ */
+function closeGallery() {
+  const container = document.getElementById('galleryContainer');
+  container.innerHTML = '';
+  activeGallery = null;
+  currentZoom = 1;
+  panX = 0;
+  panY = 0;
+  document.removeEventListener('keydown', handleGalleryKeydown);
+}
+
+// ==================== 数据操作 ====================
 
 /**
  * 导出数据

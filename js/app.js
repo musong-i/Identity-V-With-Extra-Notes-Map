@@ -348,16 +348,11 @@ function setupEventListeners() {
     });
   });
   
-  // 模态框关闭
-  document.getElementById('modalClose').addEventListener('click', closeModal);
-  document.getElementById('modal').addEventListener('click', function(e) {
-    if (e.target === this) closeModal();
-  });
-  
   // 键盘事件
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-      closeModal();
+      // 关闭画廊
+      closeGallery();
       // 关闭所有表单模态框
       document.querySelectorAll('.form-modal').forEach(m => m.remove());
     }
@@ -375,7 +370,6 @@ async function initApp() {
     
     // 设置事件监听
     setupEventListeners();
-    setupZoomAndPan();
     
     // 渲染内容
     await renderContent();
