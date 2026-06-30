@@ -23,6 +23,7 @@ const ZOOM_STEP = 0.1;
 
 // 当前活跃的画廊
 let activeGallery = null;
+let galleryHistoryPushed = false; // 标记是否已 pushState
 
 /**
  * 渲染主内容
@@ -285,6 +286,12 @@ async function openGallery(doorId, mapId) {
     doorName: door.positionName
   };
 
+  // 添加历史记录，拦截安卓返回键（仅首次打开时）
+  if (!galleryHistoryPushed) {
+    history.pushState({ gallery: true }, '', '');
+    galleryHistoryPushed = true;
+  }
+
   renderGallery();
 }
 
@@ -479,6 +486,9 @@ function setupGalleryEvents() {
 
   // 键盘支持
   document.addEventListener('keydown', handleGalleryKeydown);
+
+  // 监听返回键事件（安卓物理返回键）
+  window.addEventListener('popstate', handleGalleryPopState);
 }
 
 /**
@@ -549,6 +559,16 @@ function galleryNext() {
 }
 
 /**
+ * 处理返回键事件（安卓物理返回键）
+ */
+function handleGalleryPopState(e) {
+  if (activeGallery) {
+    galleryHistoryPushed = false;
+    closeGallery();
+  }
+}
+
+/**
  * 关闭画廊
  */
 function closeGallery() {
@@ -559,6 +579,13 @@ function closeGallery() {
   panX = 0;
   panY = 0;
   document.removeEventListener('keydown', handleGalleryKeydown);
+  window.removeEventListener('popstate', handleGalleryPopState);
+
+  // 如果是通过点击关闭按钮关闭的，需要回退历史记录
+  if (galleryHistoryPushed) {
+    galleryHistoryPushed = false;
+    history.back();
+  }
 }
 
 // ==================== 数据操作 ====================
